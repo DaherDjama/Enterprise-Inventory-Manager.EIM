@@ -33,6 +33,7 @@ def init_db():
 def main():
     init_db()
     from src.ui.product_menu import ProductMenu
+    from src.ui.stock_menu import StockMenu
     
     print("\n" + "="*40)
     print(" ENTERPRISE INVENTORY MANAGER")
@@ -40,14 +41,19 @@ def main():
     
     while True:
         print("\n1. Manage Products")
+        print("2. Stock Movements")
         print("0. Exit")
         choice = input("Choice: ")
         
         if choice == '1':
             ProductMenu().show_menu()
+        elif choice == '2':
+            StockMenu().show_menu()
         elif choice == '0':
             print("Goodbye!")
             break
+        else:
+            print("Invalid option.")
 
 if __name__ == "__main__":
     main()
