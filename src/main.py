@@ -28,7 +28,7 @@ def init_db():
                 movement_date DATETIME DEFAULT CURRENT_TIMESTAMP, user_id TEXT NOT NULL,
                 reason TEXT NOT NULL, reference TEXT)''')
 
-    # 3. Users Table (NEW)
+    # 3. Users Table
     cursor.execute('''CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
@@ -37,7 +37,7 @@ def init_db():
                 is_active BOOLEAN DEFAULT 1,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP)''')
 
-    # 4. Audit Logs Table (NEW)
+    # 4. Audit Logs Table
     cursor.execute('''CREATE TABLE IF NOT EXISTS audit_logs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -55,19 +55,17 @@ def init_db():
 def main():
     init_db()
     
-    # Import UI components
     from src.ui.login import login_screen, logout_user
     from src.ui.product_menu import ProductMenu
     from src.ui.stock_menu import StockMenu
     from src.ui.dashboard import DashboardMenu
+    from src.ui.reports_menu import ReportsMenu
     from src.services.audit_service import view_audit_logs
     from src.utils.session import get_user
 
-    # 1. Force Login
     if not login_screen():
         return
 
-    # 2. Main Loop
     while True:
         user = get_user()
         print("\n" + "="*40)
@@ -76,8 +74,9 @@ def main():
         print("1. Manage Products")
         print("2. Stock Movements")
         print("3. Financial Dashboard")
+        print("4. Reports & Export")
         if user['role'] == 'Administrator':
-            print("4. View Audit Logs (Admin Only)")
+            print("5. View Audit Logs (Admin Only)")
         print("0. Logout")
         
         choice = input("Choice: ")
@@ -88,7 +87,9 @@ def main():
             StockMenu().show_menu()
         elif choice == '3':
             DashboardMenu().show_menu()
-        elif choice == '4' and user['role'] == 'Administrator':
+        elif choice == '4':
+            ReportsMenu().show_menu()
+        elif choice == '5' and user['role'] == 'Administrator':
             view_audit_logs()
         elif choice == '0':
             logout_user()
