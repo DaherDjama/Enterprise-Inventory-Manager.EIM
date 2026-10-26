@@ -34,6 +34,7 @@ def main():
     init_db()
     from src.ui.product_menu import ProductMenu
     from src.ui.stock_menu import StockMenu
+    from src.ui.dashboard import DashboardMenu
     
     print("\n" + "="*40)
     print(" ENTERPRISE INVENTORY MANAGER")
@@ -42,6 +43,7 @@ def main():
     while True:
         print("\n1. Manage Products")
         print("2. Stock Movements")
+        print("3. Financial Dashboard")
         print("0. Exit")
         choice = input("Choice: ")
         
@@ -49,6 +51,8 @@ def main():
             ProductMenu().show_menu()
         elif choice == '2':
             StockMenu().show_menu()
+        elif choice == '3':
+            DashboardMenu().show_menu()
         elif choice == '0':
             print("Goodbye!")
             break
