@@ -1,151 +1,134 @@
 from src.utils.database import get_connection
+from src.services.audit_service import log_action
 from datetime import datetime
 
 class StockService:
     
-    def add_stock_entry(self, product_sku, quantity, unit_cost, user_id, reason, reference=""):
-        """
-        Add stock (supplier reception, return, adjustment).
-        Recalculates CUMP automatically.
-        """
+    def add_stock_entry(self, product_sku, quantity, unit_cost, user_id, reason, reference, carton_number="", units_per_carton=1):
+        """Ajoute une entrée de stock (réception)."""
         try:
             conn = get_connection()
             cursor = conn.cursor()
             
-            # Get current product data
+            # 1. Récupérer l'ID du produit
             cursor.execute("SELECT id, current_stock, cump FROM products WHERE sku = ?", (product_sku,))
             product = cursor.fetchone()
             
             if not product:
-                print(f"❌ Product with SKU '{product_sku}' not found.")
+                print("❌ Produit non trouvé.")
                 return False
             
             product_id = product['id']
-            current_stock = product['current_stock']
-            current_cump = product['cump']
+            old_stock = product['current_stock']
+            old_cump = product['cump']
             
-            # Calculate new CUMP (Weighted Average Cost)
-            # Formula: (Current Stock × Current CUMP + New Qty × New Cost) / (Current Stock + New Qty)
-            total_value = (current_stock * current_cump) + (quantity * unit_cost)
-            new_total_stock = current_stock + quantity
-            new_cump = total_value / new_total_stock if new_total_stock > 0 else 0
+            # 2. Calculer le nouveau CUMP (Coût Unitaire Moyen Pondéré)
+            total_value = old_stock * old_cump + quantity * unit_cost
+            new_stock = old_stock + quantity
+            new_cump = total_value / new_stock if new_stock > 0 else 0
             
-            # Update product stock and CUMP
-            cursor.execute('''
-                UPDATE products 
-                SET current_stock = ?, cump = ? 
-                WHERE id = ?
-            ''', (new_total_stock, new_cump, product_id))
-            
-            # Record the movement
+            # 3. Insérer le mouvement
             cursor.execute('''
                 INSERT INTO stock_movements 
-                (product_id, movement_type, quantity, unit_cost, user_id, reason, reference)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (product_id, 'ENTRY', quantity, unit_cost, user_id, reason, reference))
+                (product_id, movement_type, quantity, unit_cost, user_id, reason, reference, carton_number, units_per_carton)
+                VALUES (?, 'ENTREE', ?, ?, ?, ?, ?, ?, ?)
+            ''', (product_id, quantity, unit_cost, user_id, reason, reference, carton_number, units_per_carton))
+            
+            # 4. Mettre à jour le produit
+            cursor.execute('''
+                UPDATE products SET current_stock = ?, cump = ? WHERE id = ?
+            ''', (new_stock, new_cump, product_id))
             
             conn.commit()
-            print(f"✅ Stock Entry successful!")
-            print(f"   Product: {product_sku}")
-            print(f"   Quantity: +{quantity}")
-            print(f"   New Stock: {new_total_stock}")
-            print(f"   New CUMP: {new_cump:.2f}")
-            return True
+            print(f"✅ Entrée de {quantity} unités enregistrée pour {product_sku}.")
+            print(f"   Nouveau stock: {new_stock} | Nouveau CUMP: {new_cump:.2f}")
             
+            # 5. Journal d'audit
+            log_action("ENTREE_STOCK", "product", product_id, 
+                      f"+{quantity} unités (Lot: {carton_number})")
+            return True
         except Exception as e:
-            print(f"❌ Error: {e}")
+            print(f"❌ Erreur: {e}")
             return False
         finally:
             conn.close()
     
-    def add_stock_exit(self, product_sku, quantity, user_id, reason, reference=""):
-        """
-        Remove stock (sale, loss, transfer).
-        Uses current CUMP for valuation.
-        """
+    def add_stock_exit(self, product_sku, quantity, user_id, reason, reference, carton_number=""):
+        """Ajoute une sortie de stock."""
         try:
             conn = get_connection()
             cursor = conn.cursor()
             
-            # Get current product data
             cursor.execute("SELECT id, current_stock, cump FROM products WHERE sku = ?", (product_sku,))
             product = cursor.fetchone()
             
             if not product:
-                print(f"❌ Product with SKU '{product_sku}' not found.")
+                print("❌ Produit non trouvé.")
+                return False
+            
+            if product['current_stock'] < quantity:
+                print(f"❌ Stock insuffisant. Disponible: {product['current_stock']}")
                 return False
             
             product_id = product['id']
-            current_stock = product['current_stock']
-            current_cump = product['cump']
+            new_stock = product['current_stock'] - quantity
             
-            # Check if enough stock
-            if current_stock < quantity:
-                print(f"❌ Insufficient stock! Available: {current_stock}, Requested: {quantity}")
-                return False
-            
-            # Update product stock
-            new_stock = current_stock - quantity
-            cursor.execute('''
-                UPDATE products 
-                SET current_stock = ? 
-                WHERE id = ?
-            ''', (new_stock, product_id))
-            
-            # Record the movement
             cursor.execute('''
                 INSERT INTO stock_movements 
-                (product_id, movement_type, quantity, unit_cost, user_id, reason, reference)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (product_id, 'EXIT', quantity, current_cump, user_id, reason, reference))
+                (product_id, movement_type, quantity, unit_cost, user_id, reason, reference, carton_number)
+                VALUES (?, 'SORTIE', ?, ?, ?, ?, ?, ?)
+            ''', (product_id, quantity, product['cump'], user_id, reason, reference, carton_number))
+            
+            cursor.execute('''
+                UPDATE products SET current_stock = ? WHERE id = ?
+            ''', (new_stock, product_id))
             
             conn.commit()
-            print(f"✅ Stock Exit successful!")
-            print(f"   Product: {product_sku}")
-            print(f"   Quantity: -{quantity}")
-            print(f"   New Stock: {new_stock}")
-            print(f"   Value (CUMP): {current_cump:.2f} per unit")
-            return True
+            print(f"✅ Sortie de {quantity} unités enregistrée pour {product_sku}.")
+            print(f"   Nouveau stock: {new_stock}")
             
+            log_action("SORTIE_STOCK", "product", product_id, 
+                      f"-{quantity} unités (Lot: {carton_number})")
+            return True
         except Exception as e:
-            print(f"❌ Error: {e}")
+            print(f" Erreur: {e}")
             return False
         finally:
             conn.close()
     
     def get_movements_by_product(self, product_sku):
-        """Get all movements for a specific product (audit trail)."""
+        """Récupère l'historique des mouvements d'un produit."""
         try:
             conn = get_connection()
             cursor = conn.cursor()
             cursor.execute('''
-                SELECT sm.*, p.name, p.sku 
-                FROM stock_movements sm
-                JOIN products p ON sm.product_id = p.id
-                WHERE p.sku = ?
-                ORDER BY sm.movement_date DESC
+                SELECT m.*, p.sku 
+                FROM stock_movements m 
+                JOIN products p ON m.product_id = p.id 
+                WHERE p.sku = ? 
+                ORDER BY m.movement_date DESC
             ''', (product_sku,))
             return cursor.fetchall()
         except Exception as e:
-            print(f"❌ Error: {e}")
+            print(f"❌ Erreur: {e}")
             return []
         finally:
             conn.close()
     
     def get_all_movements(self):
-        """Get all stock movements."""
+        """Récupère tous les mouvements de stock."""
         try:
             conn = get_connection()
             cursor = conn.cursor()
             cursor.execute('''
-                SELECT sm.*, p.name, p.sku 
-                FROM stock_movements sm
-                JOIN products p ON sm.product_id = p.id
-                ORDER BY sm.movement_date DESC
+                SELECT m.*, p.sku 
+                FROM stock_movements m 
+                JOIN products p ON m.product_id = p.id 
+                ORDER BY m.movement_date DESC
             ''')
             return cursor.fetchall()
         except Exception as e:
-            print(f"❌ Error: {e}")
+            print(f"❌ Erreur: {e}")
             return []
         finally:
             conn.close()

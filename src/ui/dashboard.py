@@ -1,5 +1,6 @@
 from src.services.financial_service import FinancialService
 from src.services.product_service import ProductService
+from src.utils.helpers import clear_screen, press_enter_to_continue
 
 class DashboardMenu:
     def __init__(self):
@@ -8,19 +9,20 @@ class DashboardMenu:
 
     def show_menu(self):
         while True:
+            clear_screen()
             print("\n" + "="*40)
-            print(" FINANCIAL DASHBOARD")
+            print(" TABLEAU DE BORD FINANCIER")
             print("="*40)
-            print("1. View Product Margins")
-            print("2. View Profitability Summary")
-            print("3. Stock Alerts")
-            print("4. ABC Analysis (Pareto)")
-            print("5. Dead Stock Report")
-            print("6. Total Stock Value")
-            print("0. Exit to Main Menu")
+            print("1. Voir les Marges des Produits")
+            print("2. Résumé de la Rentabilité")
+            print("3. Alertes de Stock")
+            print("4. Analyse ABC (Pareto)")
+            print("5. Rapport de Stock Mort")
+            print("6. Valeur Totale du Stock")
+            print("0. Retour au Menu Principal")
             print("="*40)
             
-            choice = input("Select an option: ")
+            choice = input("Sélectionnez une option: ")
 
             if choice == '1':
                 self.view_product_margins()
@@ -37,103 +39,115 @@ class DashboardMenu:
             elif choice == '0':
                 break
             else:
-                print("Invalid option. Try again.")
+                print("❌ Option invalide. Réessayez.")
+                input("\nAppuyez sur Entrée pour continuer...")
 
     def view_product_margins(self):
-        print("\n--- Product Margins ---")
+        clear_screen()
+        print("\n--- Marges des Produits ---")
         products = self.product_service.get_all_products()
         if not products:
-            print("No products available.")
+            print("Aucun produit disponible.")
+            press_enter_to_continue()
             return
         
-        print(f"\n{'SKU':<10} {'Name':<20} {'Margin':<10} {'Margin %':<10} {'Mark %':<10}")
+        print(f"\n{'SKU':<10} {'Nom':<20} {'Marge':<10} {'Taux Marge %':<12} {'Taux Marque %':<12}")
         print("-" * 70)
         
         for p in products:
             margins = self.financial_service.calculate_product_margins(p['sku'])
             if margins:
                 print(f"{margins['sku']:<10} {margins['name']:<20} "
-                      f"{margins['margin']:<10.2f} {margins['margin_rate']:<10.2f} "
-                      f"{margins['markup_rate']:<10.2f}")
+                      f"{margins['margin']:<10.2f} {margins['margin_rate']:<12.2f} "
+                      f"{margins['markup_rate']:<12.2f}")
+        press_enter_to_continue()
 
     def view_profitability(self):
-        print("\n--- Profitability Summary ---")
+        clear_screen()
+        print("\n--- Résumé de la Rentabilité ---")
         result = self.financial_service.calculate_profitability()
         
         if result:
-            print(f"Total Revenue:      ${result['revenue']:,.2f}")
-            print(f"Total COGS:         ${result['cogs']:,.2f}")
-            print(f"Gross Profit:       ${result['gross_profit']:,.2f}")
-            print(f"Profit Margin:      {result['profit_margin']:.2f}%")
+            print(f"Chiffre d'Affaires Total:  {result['revenue']:,.2f} DJF")
+            print(f"Coût de Revient (COGS):   {result['cogs']:,.2f} DJF")
+            print(f"Bénéfice Brut:            {result['gross_profit']:,.2f} DJF")
+            print(f"Marge de Bénéfice:        {result['profit_margin']:.2f}%")
         else:
-            print("No sales data available.")
+            print("Aucune donnée de vente disponible.")
+        press_enter_to_continue()
 
     def view_stock_alerts(self):
-        print("\n--- Stock Alerts ---")
+        clear_screen()
+        print("\n--- Alertes de Stock ---")
         alerts = self.financial_service.get_stock_alerts()
         
         if not alerts:
-            print("✅ No stock alerts. All products are above thresholds.")
-            return
-        
-        print(f"{'SKU':<10} {'Name':<20} {'Current':<10} {'Alert':<10} {'Safety':<10}")
-        print("-" * 70)
-        
-        for alert in alerts:
-            print(f"{alert['sku']:<10} {alert['name']:<20} "
-                  f"{alert['current_stock']:<10} {alert['alert_threshold']:<10} "
-                  f"{alert['safety_stock']:<10}")
-        
-        print(f"\n⚠️  {len(alerts)} product(s) need reordering!")
+            print("✅ Aucune alerte. Tous les produits sont au-dessus des seuils.")
+        else:
+            print(f"{'SKU':<10} {'Nom':<20} {'Actuel':<10} {'Alerte':<10} {'Sécurité':<10}")
+            print("-" * 70)
+            
+            for alert in alerts:
+                print(f"{alert['sku']:<10} {alert['name']:<20} "
+                      f"{alert['current_stock']:<10} {alert['alert_threshold']:<10} "
+                      f"{alert['safety_stock']:<10}")
+            
+            print(f"\n⚠️  {len(alerts)} produit(s) nécessitent un réapprovisionnement !")
+        press_enter_to_continue()
 
     def view_abc_analysis(self):
-        print("\n--- ABC Analysis (Pareto 80/20) ---")
+        clear_screen()
+        print("\n--- Analyse ABC (Pareto 80/20) ---")
         results = self.financial_service.abc_analysis()
         
         if not results:
-            print("No sales data for ABC analysis.")
+            print("Aucune donnée de vente pour l'analyse ABC.")
+            press_enter_to_continue()
             return
         
-        # Count classes
         class_a = sum(1 for r in results if r['class'] == 'A')
         class_b = sum(1 for r in results if r['class'] == 'B')
         class_c = sum(1 for r in results if r['class'] == 'C')
         
-        print(f"\nClass A: {class_a} products (Best sellers - 80% revenue)")
-        print(f"Class B: {class_b} products (Medium sellers - 15% revenue)")
-        print(f"Class C: {class_c} products (Slow movers - 5% revenue)")
+        print(f"\nClasse A: {class_a} produits (Meilleures ventes - 80% du CA)")
+        print(f"Classe B: {class_b} produits (Ventes moyennes - 15% du CA)")
+        print(f"Classe C: {class_c} produits (Ventes lentes - 5% du CA)")
         
-        print(f"\n{'Class':<6} {'SKU':<10} {'Name':<20} {'Revenue':<15} {'%':<8}")
+        print(f"\n{'Classe':<7} {'SKU':<10} {'Nom':<20} {'CA':<15} {'%':<8}")
         print("-" * 70)
         
-        for r in results[:10]:  # Show top 10
-            print(f"{r['class']:<6} {r['sku']:<10} {r['name']:<20} "
-                  f"${r['revenue']:<14,.2f} {r['percentage']:.1f}%")
+        for r in results[:10]:
+            print(f"{r['class']:<7} {r['sku']:<10} {r['name']:<20} "
+                  f"{r['revenue']:<14,.2f} {r['percentage']:.1f}%")
         
         if len(results) > 10:
-            print(f"... and {len(results) - 10} more products")
+            print(f"... et {len(results) - 10} autres produits")
+        press_enter_to_continue()
 
     def view_dead_stock(self):
-        print("\n--- Dead Stock Report (No movement in 90 days) ---")
+        clear_screen()
+        print("\n--- Rapport de Stock Mort (Aucun mouvement depuis 90 jours) ---")
         dead_stock = self.financial_service.get_dead_stock(days_inactive=90)
         
         if not dead_stock:
-            print("✅ No dead stock detected.")
-            return
-        
-        print(f"{'SKU':<10} {'Name':<20} {'Stock':<10} {'Value':<15}")
-        print("-" * 60)
-        
-        total_value = 0
-        for item in dead_stock:
-            value = item['current_stock'] * item['cump']
-            total_value += value
-            print(f"{item['sku']:<10} {item['name']:<20} "
-                  f"{item['current_stock']:<10} ${value:,.2f}")
-        
-        print(f"\n⚠️  Total dead stock value: ${total_value:,.2f}")
+            print("✅ Aucun stock mort détecté.")
+        else:
+            print(f"{'SKU':<10} {'Nom':<20} {'Stock':<10} {'Valeur':<15}")
+            print("-" * 60)
+            
+            total_value = 0
+            for item in dead_stock:
+                value = item['current_stock'] * item['cump']
+                total_value += value
+                print(f"{item['sku']:<10} {item['name']:<20} "
+                      f"{item['current_stock']:<10} {value:,.2f} DJF")
+            
+            print(f"\n️  Valeur totale du stock mort: {total_value:,.2f} DJF")
+        press_enter_to_continue()
 
     def view_total_stock_value(self):
-        print("\n--- Total Stock Valuation ---")
+        clear_screen()
+        print("\n--- Valorisation Totale du Stock ---")
         total_value = self.financial_service.get_total_stock_value()
-        print(f"Total Stock Value (at CUMP): ${total_value:,.2f}")
+        print(f"Valeur Totale du Stock (au CUMP): {total_value:,.2f} DJF")
+        press_enter_to_continue()

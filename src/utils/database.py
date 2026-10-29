@@ -1,12 +1,12 @@
 import sqlite3
 import os
 
-# Ensure data directory exists
-os.makedirs("data", exist_ok=True)
 DB_PATH = "data/stock_management.db"
 
 def get_connection():
-    """Create and return a database connection."""
+    """Retourne une connexion à la base de données avec row_factory activé."""
+    os.makedirs("data", exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row  # Allows accessing columns by name
+    # Active le mode "dictionnaire" pour accéder aux colonnes par leur nom
+    conn.row_factory = sqlite3.Row
     return conn

@@ -3,11 +3,11 @@ from src.utils.session import get_user
 from datetime import datetime
 
 def log_action(action, entity_type, entity_id, details=""):
-    """Record an action in the audit log."""
+    """Enregistre une action dans le journal d'audit."""
     try:
         user = get_user()
         if not user:
-            return # Don't log if no one is logged in
+            return  # Ne pas enregistrer si personne n'est connecté
 
         conn = get_connection()
         cursor = conn.cursor()
@@ -15,16 +15,16 @@ def log_action(action, entity_type, entity_id, details=""):
         cursor.execute('''
             INSERT INTO audit_logs (user_id, action, entity_type, entity_id, new_value, reason)
             VALUES (?, ?, ?, ?, ?, ?)
-        ''', (user['username'], action, entity_type, entity_id, details, "System Action"))
+        ''', (user['username'], action, entity_type, entity_id, details, "Action Système"))
         
         conn.commit()
     except Exception as e:
-        print(f"❌ Audit log error: {e}")
+        print(f"❌ Erreur journal d'audit: {e}")
     finally:
         conn.close()
 
 def view_audit_logs():
-    """Display recent audit logs (Admin only)."""
+    """Affiche les journaux d'audit récents (Admin seulement)."""
     try:
         conn = get_connection()
         cursor = conn.cursor()
@@ -36,12 +36,16 @@ def view_audit_logs():
         ''')
         logs = cursor.fetchall()
         
-        print(f"\n{'Time':<20} {'User':<10} {'Action':<15} {'Type':<10} {'Details'}")
-        print("-" * 80)
+        if not logs:
+            print("Aucun journal d'audit disponible.")
+            return
+        
+        print(f"\n{'Heure':<22} {'Utilisateur':<12} {'Action':<15} {'Type':<12} {'Détails'}")
+        print("-" * 85)
         for log in logs:
-            print(f"{log['timestamp']:<20} {log['user_id']:<10} {log['action']:<15} {log['entity_type']:<10} {log['new_value']}")
+            print(f"{log['timestamp']:<22} {log['user_id']:<12} {log['action']:<15} {log['entity_type']:<12} {log['new_value']}")
             
     except Exception as e:
-        print(f"❌ Error viewing logs: {e}")
+        print(f" Erreur lors de l'affichage des journaux: {e}")
     finally:
         conn.close()
